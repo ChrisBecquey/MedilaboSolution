@@ -33,6 +33,8 @@ class PatientServiceTest {
 
     @Test
     void getPatientById() {
+        Long patientId = 1L;
+        Patient patient
     }
 
     @Test
