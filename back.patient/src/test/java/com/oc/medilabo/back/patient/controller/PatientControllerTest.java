@@ -1,0 +1,173 @@
+package com.oc.medilabo.back.patient.controller;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.oc.medilabo.back.patient.domain.Genre;
+import com.oc.medilabo.back.patient.domain.Patient;
+import com.oc.medilabo.back.patient.exceptions.PatientNotFoundException;
+import com.oc.medilabo.back.patient.service.PatientService;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
+
+import java.sql.Date;
+import java.util.List;
+import java.util.Optional;
+
+import static org.hamcrest.CoreMatchers.is;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+
+class PatientControllerTest {
+    @Mock
+    private PatientService patientService;
+
+    @InjectMocks
+    private PatientController patientController;
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Test
+    void testGetAllPatients() throws Exception {
+        List<Patient> realPatients = patientService.getAllPatients();
+
+        when(patientService.getAllPatients()).thenReturn(realPatients);
+
+        ResultActions resultActions = mockMvc.perform(get("/patients/all")).andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON)).andExpect(jsonPath("$").isArray());
+    }
+
+    @Test
+    void testGetPatientById() throws Exception {
+        Long patientId = 1L;
+        Patient patient = new Patient();
+        patient.setPrenom("Test");
+        patient.setId(patientId);
+        when(patientService.getPatientById(patientId)).thenReturn(Optional.of(patient));
+
+        mockMvc.perform(MockMvcRequestBuilders.get("/patients/{patientId}", patientId))
+                .andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.id").value(patient.getId()))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.prenom").value(patient.getPrenom())).andReturn();
+    }
+
+    @Test
+    void testUpdatePatientAdresse() throws Exception {
+        Long patientId = 1L;
+        String nouvelleAdresse = "Nouvelle adresse";
+
+        when(patientService.updatePatientAdresse(patientId, nouvelleAdresse)).thenReturn(new Patient());
+
+        mockMvc.perform(post("/patients/{patientId}/update-adresse", patientId)
+                        .param("nouvelleAdresse", nouvelleAdresse)).andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.content().contentType(MediaType.APPLICATION_JSON)).andReturn();
+    }
+
+    @Test
+    void testUpdatePatientNumero() throws Exception {
+        Long patientId = 1L;
+        String nouveauNumero = "Nouveau numéro";
+
+        when(patientService.updatePatientNumero(patientId, nouveauNumero)).thenReturn(new Patient());
+
+        mockMvc.perform(post("/patients/{patientId}/update-numero", patientId)
+                        .param("nouveauNumero", nouveauNumero)).andExpect(MockMvcResultMatchers.status().isOk())
+                .andExpect(MockMvcResultMatchers.content().contentType(MediaType.APPLICATION_JSON)).andReturn();
+    }
+
+    @Test
+    void testAddNewPatient() throws Exception {
+        Patient newPatient = new Patient();
+        newPatient.setPrenom("John");
+        newPatient.setNom("Doe");
+        newPatient.setDateNaissance(Date.valueOf("1990-01-01"));
+        newPatient.setGenre(Genre.M);
+        newPatient.setAdressePostale("123 Main St");
+        newPatient.setNumeroTelephone("555-1234");
+
+        when(patientService.addNewPatient(any(), any(), any(), any(), any(), any())).thenReturn(newPatient);
+
+        mockMvc.perform(post("/patients/add").contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(newPatient))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.prenom", is("John"))).andExpect(jsonPath("$.nom", is("Doe")))
+                .andExpect(jsonPath("$.dateNaissance", is("1990-01-01"))).andExpect(jsonPath("$.genre", is("M")))
+                .andExpect(jsonPath("$.adressePostale", is("123 Main St")))
+                .andExpect(jsonPath("$.numeroTelephone", is("555-1234")));
+    }
+
+    @Test
+    void testUpdatePatientAdressePatientNotFoundException() throws Exception {
+        Long patientId = 100L;
+        String nouvelleAdresse = "Nouvelle adresse";
+
+        when(patientService.updatePatientAdresse(patientId, nouvelleAdresse))
+                .thenThrow(new PatientNotFoundException("Patient non trouvé avec l'ID : " + patientId));
+
+        mockMvc.perform(
+                        post("/patients/{patientId}/update-adresse", patientId).param("nouvelleAdresse", nouvelleAdresse))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void testUpdatePatientNumeroPatientNotFoundException() throws Exception {
+        Long patientId = 100L;
+        String nouveauNumero = "123456789";
+
+        when(patientService.updatePatientNumero(patientId, nouveauNumero))
+                .thenThrow(new PatientNotFoundException("Patient non trouvé avec l'ID : " + patientId));
+
+        mockMvc.perform(post("/patients/{patientId}/update-numero", patientId).param("nouveauNumero", nouveauNumero))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void testGetPatientByIdException() throws Exception {
+        Long patientId = 100L;
+
+        doThrow(new PatientNotFoundException("Patient non trouvé avec l'ID : " + patientId)).when(patientService)
+                .getPatientById(patientId);
+
+        mockMvc.perform(MockMvcRequestBuilders.get("/patients/{patientId}", patientId))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void testGetPatientByIdNotFound() throws Exception {
+        Long patientId = 100L;
+
+        when(patientService.getPatientById(patientId)).thenReturn(Optional.empty());
+
+        mockMvc.perform(MockMvcRequestBuilders.get("/patients/{patientId}", patientId))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void testAddNewPatientInternalServerError() throws Exception {
+        Patient newPatient = new Patient();
+        newPatient.setPrenom("John");
+        newPatient.setNom("Doe");
+
+        when(patientService.addNewPatient(any(), any(), any(), any(), any(), any()))
+                .thenThrow(new RuntimeException("Une erreur interne s'est produite lors de l'ajout du patient."));
+
+        mockMvc.perform(post("/patients/add").contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(newPatient))).andExpect(status().isInternalServerError());
+    }
+}

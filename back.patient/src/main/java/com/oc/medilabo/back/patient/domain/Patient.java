@@ -4,7 +4,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import org.springframework.lang.NonNull;
 
 import java.util.Date;
@@ -50,8 +49,8 @@ public class Patient {
         this.nom = nom;
     }
 
-    public Date getDateNaissance() {
-        return dateNaissance;
+    public java.sql.Date getDateNaissance() {
+        return (java.sql.Date) dateNaissance;
     }
 
     public void setDateNaissance(Date dateNaissance) {
